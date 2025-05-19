@@ -15,9 +15,9 @@ const languages = [
   },
   {
     code: 'ja',
-    name: '日本語',
+    name: '日本語 (Japanese)',
     flag: '🇯🇵',
-  },
+  }
 ];
 
 export const LanguageSelector: React.FC = () => {
@@ -48,7 +48,7 @@ export const LanguageSelector: React.FC = () => {
             </span>
             {i18n.language === language.code && (
               <span className="text-sm bg-white/20 px-2 py-1 rounded">
-                Active
+                {t("languageSelector.active")}
               </span>
             )}
           </Button>

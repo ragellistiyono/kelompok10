@@ -1,4 +1,5 @@
 // API services for tasks
+import { getCategoryKey } from "./categoryUtils";
 
 interface Task {
   id: number;
@@ -11,6 +12,10 @@ interface Task {
   createdAt: string;
   updatedAt: string;
   userId?: number;
+  meta?: {
+    categoryKey?: string;
+    creationLanguage?: string;
+  };
 }
 
 interface CreateTaskInput {
@@ -21,6 +26,10 @@ interface CreateTaskInput {
   category?: string;
   priority?: string;
   userId?: number;
+  meta?: {
+    categoryKey?: string;
+    creationLanguage?: string;
+  };
 }
 
 interface UpdateTaskInput {
@@ -36,7 +45,30 @@ interface UpdateTaskInput {
 const API_URL = 'http://localhost:5000/api';
 
 // Helper function to check if the backend is available
-let isBackendAvailable = true;
+let isBackendAvailable = false; // Default to false to prioritize offline mode if no check has been made yet
+const LOCAL_STORAGE_KEY = 'todo_tasks';
+
+// Get stored tasks from localStorage
+export const getStoredTasks = (): any[] => {
+  const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (stored) {
+    try {
+      const tasks = JSON.parse(stored);
+      console.log('Retrieved tasks from localStorage:', tasks);
+      return tasks;
+    } catch (e) {
+      console.error('Error parsing stored tasks:', e);
+    }
+  }
+  return []; // Return empty array if nothing stored
+};
+
+// Save tasks to localStorage
+export const saveTasks = (tasks: any[]) => {
+  console.log('Saving tasks to localStorage:', tasks);
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
+};
+
 const checkBackendStatus = async (): Promise<boolean> => {
   try {
     const response = await fetch(`${API_URL}/tasks`, { 
@@ -48,6 +80,7 @@ const checkBackendStatus = async (): Promise<boolean> => {
       }
     });
     isBackendAvailable = response.ok;
+    console.log('Backend availability check:', isBackendAvailable ? 'AVAILABLE' : 'UNAVAILABLE');
     return isBackendAvailable;
   } catch (error) {
     console.error('Backend check failed:', error);
@@ -56,11 +89,6 @@ const checkBackendStatus = async (): Promise<boolean> => {
   }
 };
 
-// Initial backend status check
-checkBackendStatus().then(status => {
-  console.log(`Backend status: ${status ? 'Available' : 'Unavailable'}`);
-});
-
 // Helper function for API requests with improved error handling
 async function apiRequest<T>(
   endpoint: string, 
@@ -68,12 +96,81 @@ async function apiRequest<T>(
   body?: any
 ): Promise<T> {
   try {
-    // Return mock data if backend is not available
-    if (!isBackendAvailable && method === 'GET') {
-      console.log('Backend unavailable, returning mock data');
-      return [] as unknown as T;
+    // Check backend availability for all operations
+    await checkBackendStatus();
+    
+    // If backend is not available, handle differently based on the request type
+    if (!isBackendAvailable) {
+      console.log('Backend unavailable, using localStorage for', method, 'operation');
+      
+      // GET operations return data from localStorage
+      if (method === 'GET') {
+        const tasks = getStoredTasks();
+        console.log('Returning local tasks:', tasks);
+        return tasks as unknown as T;
+      }
+      
+      // POST operations add to localStorage
+      if (method === 'POST' && endpoint === '/tasks' && body) {
+        const tasks = getStoredTasks();
+        const newId = Math.max(0, ...tasks.map((t: any) => t.id), 0) + 1;
+        
+        // Ensure we have a category key
+        if (body.category && (!body.meta || !body.meta.categoryKey)) {
+          if (!body.meta) body.meta = {};
+          body.meta.categoryKey = getCategoryKey(body.category);
+        }
+        
+        const newTask = { 
+          ...body, 
+          id: newId, 
+          completed: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        tasks.push(newTask);
+        saveTasks(tasks);
+        console.log('Added new task to localStorage:', newTask);
+        return newTask as unknown as T;
+      }
+      
+      // PUT operations update localStorage
+      if (method === 'PUT' && endpoint.startsWith('/tasks/') && body) {
+        const id = Number(endpoint.split('/').pop());
+        const tasks = getStoredTasks();
+        const updatedTasks = tasks.map((task: any) => {
+          if (task.id === id) {
+            return { 
+              ...task, 
+              ...body,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return task;
+        });
+        
+        saveTasks(updatedTasks);
+        const updatedTask = updatedTasks.find((task: any) => task.id === id);
+        console.log('Updated task in localStorage:', updatedTask);
+        return updatedTask as unknown as T;
+      }
+      
+      // DELETE operations remove from localStorage
+      if (method === 'DELETE' && endpoint.startsWith('/tasks/')) {
+        const id = Number(endpoint.split('/').pop());
+        const tasks = getStoredTasks();
+        const filteredTasks = tasks.filter((task: any) => task.id !== id);
+        
+        saveTasks(filteredTasks);
+        console.log('Removed task', id, 'from localStorage');
+        return {} as T;
+      }
+      
+      throw new Error('Operation not supported in offline mode');
     }
     
+    // If backend is available, proceed with actual API request
     const options: RequestInit = {
       method,
       headers: {
@@ -116,6 +213,12 @@ async function apiRequest<T>(
       const errorMessage = data?.error || data?.message || 'Something went wrong';
       console.error(`API Error: ${response.status} ${response.statusText}`, data);
       throw new Error(errorMessage);
+    }
+    
+    // For successful API requests, also update localStorage as a backup
+    if (method === 'GET' && endpoint === '/tasks') {
+      saveTasks(data);
+      console.log('Updated localStorage with API data');
     }
     
     return data;

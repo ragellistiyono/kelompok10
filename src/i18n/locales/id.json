@@ -87,13 +87,25 @@
     }
   },
   "askAspri": {
-    "title": "Tanyakan Apapun ke Aspri",
-    "subtitle": "Saya di sini untuk membantu menjawab pertanyaan Anda, memberikan informasi, atau membantu dengan tugas. Cukup ketik pesan di bawah untuk memulai percakapan kita.",
+    "title": "Tanya Aspri Apa Saja",
+    "subtitle": "Saya di sini untuk membantu menjawab pertanyaan, memberikan informasi, atau membantu tugas-tugas Anda. Cukup ketik pesan di bawah untuk memulai percakapan kita.",
     "inputPlaceholder": "Ketik pesan Anda di sini...",
+    "type_message": "Ketik pesan Anda di sini...",
     "sending": "Mengirim...",
     "send": "Kirim",
-    "clear": "Bersihkan Obrolan",
+    "clear": "Hapus Obrolan",
+    "clear_chat": "Hapus Obrolan",
     "settings": "Pengaturan",
+    "welcome_title": "Selamat Datang di Asisten AI Aspri",
+    "welcome_message": "Tanyakan apa saja! Saya di sini untuk membantu menjawab pertanyaan, memberikan informasi, atau membantu tugas-tugas Anda.",
+    "api_key_required": "Anda perlu menambahkan kunci API untuk menggunakan asisten ini.",
+    "open_settings": "Buka Pengaturan",
+    "you": "Anda",
+    "aspri": "Aspri",
+    "powered_by": "Didukung oleh",
+    "using_custom_key": "Menggunakan kunci API kustom",
+    "using_default_key": "Menggunakan kunci API default",
+    "no_api_key": "Tidak ada kunci API yang diberikan",
     "settings_modal": {
       "title": "Pengaturan AI",
       "provider_label": "Penyedia AI",
@@ -260,6 +272,13 @@
     "priorityMedium": "Sedang",
     "priorityHigh": "Tinggi",
     "comingSoon": "Segera Hadir!",
-    "featureDesc": "Fitur Integrasi AI sedang dalam pengembangan dan akan segera tersedia. Kami sedang mengerjakan integrasi AI untuk meningkatkan pengalaman pengelolaan tugas Anda."
+    "featureDesc": "Fitur AI",
+    "getStarted": "Mulai",
+    "taskEnhancementTitle": "Peningkatan Tugas",
+    "taskEnhancementDesc": "AI dapat meningkatkan judul dan deskripsi tugas, serta menyarankan kategorisasi atau tingkat prioritas yang lebih baik",
+    "askAspriTitle": "Tanya ASPRI",
+    "askAspriDesc": "Bercakap dengan AI untuk mendapatkan saran tugas, tips produktivitas, atau bantuan dengan perencanaan tugas",
+    "apiKeyTitle": "Manajemen Kunci API",
+    "apiKeyDesc": "Gunakan kunci API Anda sendiri atau kunci default yang kami sediakan untuk berbagai penyedia AI"
   }
 }

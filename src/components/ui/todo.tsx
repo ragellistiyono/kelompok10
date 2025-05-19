@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { taskApi } from "../../lib/api";
+import { taskApi, getStoredTasks, saveTasks } from "../../lib/api";
 import { TodoListItem } from "./TodoList";
+import { normalizeCategory, CATEGORY_KEYS, getCategoryKey } from "../../lib/categoryUtils";
 
 interface Task {
   id: number;
@@ -23,23 +24,8 @@ interface TodoProps {
 // Local storage key for tasks
 const LOCAL_STORAGE_KEY = 'todo_tasks';
 
-// Get stored tasks from localStorage
-const getStoredTasks = (): Task[] => {
-  const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error('Error parsing stored tasks:', e);
-    }
-  }
-  return []; // Return empty array if nothing stored
-};
-
-// Save tasks to localStorage
-const saveTasks = (tasks: Task[]) => {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
-};
+// Get stored tasks moved to api.ts
+// Save tasks moved to api.ts
 
 export const TodoList: React.FC<TodoProps> = ({ refreshTrigger = 0, categoryFilter }) => {
   const { t } = useTranslation();
@@ -50,12 +36,14 @@ export const TodoList: React.FC<TodoProps> = ({ refreshTrigger = 0, categoryFilt
 
   const fetchTasks = useCallback(async () => {
     try {
+      console.log('TodoList: Fetching tasks, refreshTrigger =', refreshTrigger);
       setIsLoading(true);
       setError(null);
       
       try {
         // Try to fetch from API
         const data = await taskApi.getAllTasks();
+        console.log('TodoList: Successfully fetched', data.length, 'tasks from API');
         setTasks(data);
         
         // If successful, save to localStorage as backup
@@ -66,6 +54,7 @@ export const TodoList: React.FC<TodoProps> = ({ refreshTrigger = 0, categoryFilt
         
         // On API error, use localStorage data
         const storedTasks = getStoredTasks();
+        console.log('TodoList: Using', storedTasks.length, 'tasks from localStorage');
         setTasks(storedTasks);
         setIsOfflineMode(true);
       }
@@ -75,7 +64,7 @@ export const TodoList: React.FC<TodoProps> = ({ refreshTrigger = 0, categoryFilt
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshTrigger]);
 
   const handleTaskComplete = async (id: number, completed: boolean) => {
     try {
@@ -178,7 +167,7 @@ export const TodoList: React.FC<TodoProps> = ({ refreshTrigger = 0, categoryFilt
 };
 
 export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(categoryFilter || "");
@@ -217,16 +206,49 @@ export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) =
         }
       }
       
+      // Store the language when the task was created
+      const creationLanguage = i18n.language;
+      
+      // Get the language-independent category key
+      let categoryKey = categoryFilter 
+        ? getCategoryKey(categoryFilter) 
+        : getCategoryKey(category.trim());
+      
+      // Map to the current displayed category for UI consistency
+      let displayCategory = '';
+      
+      if (categoryKey === CATEGORY_KEYS.PERSONAL) {
+        displayCategory = t('todo.list.personal');
+      } else if (categoryKey === CATEGORY_KEYS.WORK) {
+        displayCategory = t('todo.list.work');
+      } else if (category) {
+        displayCategory = category.trim();
+      }
+      
+      console.log('Adding task with category:', displayCategory, 
+                  'Category key:', categoryKey,
+                  'Creation language:', creationLanguage);
+      
       const newTask = {
         title: title.trim(),
         description: description.trim() || undefined,
-        category: category.trim() || undefined,
+        category: displayCategory,
         dueDate: dueDateTimeString,
+        // Store language-independent metadata
+        meta: {
+          categoryKey: categoryKey,
+          creationLanguage: creationLanguage
+        }
       };
+      
+      let createdTask = null;
+      let isApiSuccess = false;
       
       try {
         // Try to create via API
-        await taskApi.createTask(newTask);
+        createdTask = await taskApi.createTask(newTask);
+        console.log('Task created successfully via API:', createdTask);
+        isApiSuccess = true;
       } catch (apiErr) {
         console.error('API create error, switching to offline mode:', apiErr);
         
@@ -234,15 +256,16 @@ export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) =
         const tasks = getStoredTasks();
         
         // Create a new task with local ID
-        const newLocalTask: Task = {
+        createdTask = {
           ...newTask,
-          id: Math.max(0, ...tasks.map(t => t.id)) + 1,
+          id: Math.max(0, ...tasks.map(t => t.id), 0) + 1, // Handle empty array case
           completed: false
         };
         
         // Add to stored tasks
-        tasks.push(newLocalTask);
+        tasks.push(createdTask);
         saveTasks(tasks);
+        console.log('Task saved locally:', createdTask);
       }
       
       // Reset form
@@ -267,9 +290,9 @@ export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) =
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-[#2f373e] p-4 rounded-lg space-y-4">
+    <form onSubmit={handleSubmit} className="bg-[#2f373e] p-3 md:p-4 rounded-lg space-y-3 md:space-y-4">
       <div>
-        <label htmlFor="title" className="block text-white mb-1">
+        <label htmlFor="title" className="block text-white text-sm md:text-base mb-1">
           {t('todo.form.taskTitle')}
         </label>
         <input
@@ -277,28 +300,28 @@ export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) =
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06]"
+          className="w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06] text-sm md:text-base"
           placeholder={t('todo.form.titlePlaceholder')}
         />
       </div>
       
       <div>
-        <label htmlFor="description" className="block text-white mb-1">
+        <label htmlFor="description" className="block text-white text-sm md:text-base mb-1">
           {t('todo.form.description')}
         </label>
         <textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06]"
+          className="w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06] text-sm md:text-base"
           placeholder={t('todo.form.descriptionPlaceholder')}
           rows={3}
         />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
         <div>
-          <label htmlFor="dueDate" className="block text-white mb-1">
+          <label htmlFor="dueDate" className="block text-white text-sm md:text-base mb-1">
             {t('todo.form.dueDate')}
           </label>
           <input
@@ -306,12 +329,12 @@ export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) =
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className="w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06]"
+            className="w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06] text-sm md:text-base"
           />
         </div>
         
         <div>
-          <label htmlFor="dueTime" className="block text-white mb-1">
+          <label htmlFor="dueTime" className="block text-white text-sm md:text-base mb-1">
             {t('todo.form.dueTime')}
           </label>
           <input
@@ -319,20 +342,20 @@ export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) =
             type="time"
             value={dueTime}
             onChange={(e) => setDueTime(e.target.value)}
-            className="w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06]"
+            className="w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06] text-sm md:text-base"
           />
         </div>
       </div>
       
       <div>
-        <label htmlFor="category" className="block text-white mb-1">
+        <label htmlFor="category" className="block text-white text-sm md:text-base mb-1">
           {t('todo.form.category')}
         </label>
         <select
           id="category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className={`w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06] ${
+          className={`w-full bg-[#242b31] text-white px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#ff6f06] text-sm md:text-base ${
             categoryFilter ? 'opacity-75' : ''
           }`}
           disabled={!!categoryFilter}
@@ -346,12 +369,12 @@ export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) =
         )}
       </div>
       
-      {error && <div className="text-red-500">{error}</div>}
+      {error && <div className="text-red-500 text-sm">{error}</div>}
       
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full bg-[#ff6f06] text-white py-2 rounded-md hover:bg-[#e56300] disabled:opacity-50"
+        className="w-full bg-[#ff6f06] text-white py-2 rounded-md hover:bg-[#e56300] disabled:opacity-50 text-sm md:text-base mt-2"
       >
         {isSubmitting ? t('todo.form.addingTask') : t('todo.form.addTask')}
       </button>
@@ -359,12 +382,19 @@ export const TodoForm: React.FC<TodoProps> = ({ onTaskAdded, categoryFilter }) =
   );
 };
 
-export const Todo: React.FC<{initialCategory?: string}> = ({ initialCategory }) => {
-  const { t } = useTranslation();
+export const Todo: React.FC<{initialCategory?: string, onTaskAdded?: () => void}> = ({ initialCategory, onTaskAdded }) => {
+  const { t, i18n } = useTranslation();
   const [refreshTasks, setRefreshTasks] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string | undefined>(initialCategory);
   const [formMessage, setFormMessage] = useState<{type: 'success' | 'warning' | 'error', text: string} | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+
+  // Force refresh when language changes
+  useEffect(() => {
+    console.log('Language changed to', i18n.language, '- refreshing tasks');
+    const newRefreshValue = Date.now();
+    setRefreshTasks(newRefreshValue);
+  }, [i18n.language]);
 
   useEffect(() => {
     setActiveCategory(initialCategory);
@@ -403,7 +433,9 @@ export const Todo: React.FC<{initialCategory?: string}> = ({ initialCategory }) 
 
   const handleTaskAdded = () => {
     // Increment refresh counter to trigger reload of task list
-    setRefreshTasks((prev) => prev + 1);
+    const newRefreshValue = Date.now();
+    console.log('Todo: handleTaskAdded called, setting refresh value to', newRefreshValue);
+    setRefreshTasks(newRefreshValue);
     
     // Show success message
     setFormMessage({ 
@@ -415,26 +447,32 @@ export const Todo: React.FC<{initialCategory?: string}> = ({ initialCategory }) 
     setTimeout(() => {
       setFormMessage(null);
     }, 3000);
+
+    // Propagate the event to parent if provided
+    if (onTaskAdded) {
+      onTaskAdded();
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex space-x-4 mb-4">
+      {/* Responsive category buttons */}
+      <div className="flex flex-wrap gap-2 mb-4">
         <button 
           onClick={() => setActiveCategory(undefined)} 
-          className={`px-4 py-2 rounded-md ${!activeCategory ? 'bg-[#ff6f06] text-white' : 'bg-[#383f45] text-gray-300'}`}
+          className={`px-3 py-2 text-sm md:text-base md:px-4 rounded-md ${!activeCategory ? 'bg-[#ff6f06] text-white' : 'bg-[#383f45] text-gray-300'}`}
         >
           {t('todo.list.allTasks')}
         </button>
         <button 
           onClick={() => setActiveCategory(t('todo.list.personal'))} 
-          className={`px-4 py-2 rounded-md ${activeCategory === t('todo.list.personal') ? 'bg-[#ff6f06] text-white' : 'bg-[#383f45] text-gray-300'}`}
+          className={`px-3 py-2 text-sm md:text-base md:px-4 rounded-md ${activeCategory === t('todo.list.personal') ? 'bg-[#ff6f06] text-white' : 'bg-[#383f45] text-gray-300'}`}
         >
           {t('todo.list.personal')}
         </button>
         <button 
           onClick={() => setActiveCategory(t('todo.list.work'))} 
-          className={`px-4 py-2 rounded-md ${activeCategory === t('todo.list.work') ? 'bg-[#ff6f06] text-white' : 'bg-[#383f45] text-gray-300'}`}
+          className={`px-3 py-2 text-sm md:text-base md:px-4 rounded-md ${activeCategory === t('todo.list.work') ? 'bg-[#ff6f06] text-white' : 'bg-[#383f45] text-gray-300'}`}
         >
           {t('todo.list.work')}
         </button>
@@ -457,8 +495,8 @@ export const Todo: React.FC<{initialCategory?: string}> = ({ initialCategory }) 
         categoryFilter={activeCategory} 
       />
       
-      <div className="mt-8">
-        <h3 className="text-white text-lg font-medium mb-4">{t('todo.list.yourTasks')}</h3>
+      <div className="mt-6 md:mt-8">
+        <h3 className="text-white text-lg font-medium mb-3 md:mb-4">{t('todo.list.yourTasks')}</h3>
         <TodoList refreshTrigger={refreshTasks} categoryFilter={activeCategory} />
       </div>
     </div>

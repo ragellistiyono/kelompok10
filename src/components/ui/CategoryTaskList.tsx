@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { taskApi } from "../../lib/api";
+import { taskApi, getStoredTasks, saveTasks } from "../../lib/api";
 import { TodoListItem } from "./TodoList";
+import { normalizeCategory, getCategoryKey } from "../../lib/categoryUtils";
 
 interface Task {
   id: number;
@@ -11,6 +12,10 @@ interface Task {
   dueDate?: string;
   category?: string;
   priority?: string;
+  meta?: {
+    categoryKey?: string;
+    creationLanguage?: string;
+  };
 }
 
 interface CategoryTaskListProps {
@@ -18,39 +23,27 @@ interface CategoryTaskListProps {
   refreshTrigger?: number;
 }
 
-// Get stored tasks from localStorage
-const getStoredTasks = (): Task[] => {
-  const stored = localStorage.getItem('todo_tasks');
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error('Error parsing stored tasks:', e);
-    }
-  }
-  return [];
-};
-
-// Save tasks to localStorage
-const saveTasks = (tasks: Task[]) => {
-  localStorage.setItem('todo_tasks', JSON.stringify(tasks));
-};
-
 export const CategoryTaskList: React.FC<CategoryTaskListProps> = ({ category, refreshTrigger = 0 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  
+  // Get the normalized category key that's language-independent
+  const categoryKey = getCategoryKey(category);
 
   const fetchTasks = useCallback(async () => {
     try {
+      console.log('CategoryTaskList: fetchTasks triggered with refreshTrigger =', refreshTrigger);
+      console.log('Current language:', i18n.language, 'Current category:', category, 'Category key:', categoryKey);
       setIsLoading(true);
       setError(null);
       
       try {
         // Try to fetch from API
         const data = await taskApi.getAllTasks();
+        console.log('CategoryTaskList: Fetched tasks from API:', data);
         setTasks(data);
         setIsOfflineMode(false);
       } catch (err) {
@@ -58,6 +51,7 @@ export const CategoryTaskList: React.FC<CategoryTaskListProps> = ({ category, re
         
         // On API error, use localStorage data
         const storedTasks = getStoredTasks();
+        console.log('CategoryTaskList: Using tasks from localStorage:', storedTasks);
         setTasks(storedTasks);
         setIsOfflineMode(true);
       }
@@ -67,7 +61,7 @@ export const CategoryTaskList: React.FC<CategoryTaskListProps> = ({ category, re
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshTrigger, categoryKey, i18n.language]);
 
   const handleTaskComplete = async (id: number, completed: boolean) => {
     try {
@@ -122,18 +116,37 @@ export const CategoryTaskList: React.FC<CategoryTaskListProps> = ({ category, re
   };
 
   useEffect(() => {
+    console.log('CategoryTaskList: useEffect triggered, fetching tasks...');
     fetchTasks();
-  }, [fetchTasks, refreshTrigger]);
+  }, [fetchTasks, refreshTrigger, i18n.language]);
 
-  // Filtered tasks based on category
-  const filteredTasks = tasks.filter(task => task.category === category);
+  // Language-independent category filtering
+  const filteredTasks = tasks.filter(task => {
+    // First check meta.categoryKey if available
+    if (task.meta && task.meta.categoryKey) {
+      const match = task.meta.categoryKey === categoryKey;
+      console.log(`Task ${task.id}: Using meta.categoryKey "${task.meta.categoryKey}" vs "${categoryKey}"`, match);
+      return match;
+    }
+    
+    // Fallback to regular category checking
+    const taskCategoryKey = getCategoryKey(task.category);
+    const match = taskCategoryKey === categoryKey;
+    
+    console.log(`Task ${task.id}: category: "${task.category}", key: "${taskCategoryKey}", 
+                 Filter category: "${category}", key: "${categoryKey}"`, match);
+    
+    return match;
+  });
+
+  console.log(`CategoryTaskList: Found ${filteredTasks.length} tasks for category "${category}" (key: ${categoryKey}) out of ${tasks.length} total tasks`);
 
   if (isLoading) return <div className="text-white">{t('todo.list.loading')}</div>;
 
   if (filteredTasks.length === 0) {
     return (
       <div className="p-4 rounded-lg bg-[#2f373e] text-white">
-        <p>{t('todo.list.noTasks')}</p>
+        <p>{t('todo.list.noCategoryTasks', { category })}</p>
       </div>
     );
   }

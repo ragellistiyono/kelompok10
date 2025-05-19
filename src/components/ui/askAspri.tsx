@@ -32,7 +32,7 @@ const aiProviders: AIProvider[] = [
     name: "gemini",
     label: "Google Gemini",
     provider: "Google",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
     defaultApiKey: "AIzaSyCZpTTjpdSgZGUJSoNPAtbZQYzxL87owCw",
     apiKeyUrl: "https://aistudio.google.com/app/apikey"
   },
@@ -41,10 +41,10 @@ const aiProviders: AIProvider[] = [
     name: "deepseek",
     label: "DeepSeek",
     provider: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/",
+    baseUrl: "https://api.deepseek.com/v1/chat/completions",
     models: [
       { name: "deepseek-chat", label: "DeepSeek Chat" },
-      { name: "deepseek-reasoner", label: "DeepSeek Reasoner" }
+      { name: "deepseek-coder", label: "DeepSeek Coder" }
     ],
     apiKeyUrl: "https://platform.deepseek.com/apiKeys"
   },
@@ -238,6 +238,7 @@ export const AskAspri: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [freeCount, setFreeCount] = useState(0);
+  const [notification, setNotification] = useState<{type: 'info' | 'warning' | 'error'; message: string} | null>(null);
   
   // AI Provider settings
   const [activeProvider, setActiveProvider] = useState<AIProvider>(aiProviders[0]);
@@ -252,23 +253,43 @@ export const AskAspri: React.FC = () => {
 
   // Load saved configuration and messages
   useEffect(() => {
+    // First try to load the saved configuration
     const savedConfig = localStorage.getItem(ASPRI_CONFIG_KEY);
+    let configLoaded = false;
+    
     if (savedConfig) {
       try {
         const config = JSON.parse(savedConfig);
         const provider = aiProviders.find(p => p.id === config.providerId);
         if (provider) {
+          console.log(`Loading saved provider configuration: ${provider.label}`);
           setActiveProvider(provider);
           setApiKey(config.apiKey || "");
+          
           if (provider.models && provider.models.length > 0) {
-            setSelectedModel(config.model || provider.models[0].name);
+            const savedModel = config.model || provider.models[0].name;
+            setSelectedModel(savedModel);
+            console.log(`Using model: ${savedModel} for provider ${provider.label}`);
           }
+          configLoaded = true;
         }
       } catch (error) {
         console.error("Error parsing saved config:", error);
       }
     }
+    
+    // If no config was loaded, set defaults to use Gemini
+    if (!configLoaded) {
+      const defaultProvider = aiProviders.find(p => p.id === "gemini") || aiProviders[0];
+      console.log(`Using default provider: ${defaultProvider.label}`);
+      setActiveProvider(defaultProvider);
+      
+      if (defaultProvider.models && defaultProvider.models.length > 0) {
+        setSelectedModel(defaultProvider.models[0].name);
+      }
+    }
 
+    // Load saved messages
     const savedMessages = localStorage.getItem(ASPRI_MESSAGES_KEY);
     if (savedMessages) {
       try {
@@ -284,6 +305,7 @@ export const AskAspri: React.FC = () => {
       }
     }
 
+    // Load free usage count
     const savedFreeCount = localStorage.getItem(ASPRI_FREE_COUNT_KEY);
     if (savedFreeCount) {
       try {
@@ -315,6 +337,16 @@ export const AskAspri: React.FC = () => {
     };
     localStorage.setItem(ASPRI_CONFIG_KEY, JSON.stringify(config));
   }, [activeProvider, apiKey, selectedModel]);
+
+  // Notification timeout
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -365,8 +397,25 @@ export const AskAspri: React.FC = () => {
     }
     
     try {
+      // Make sure a model is selected if provider has models
+      let modelToUse = selectedModel;
+      if (!modelToUse && activeProvider.models && activeProvider.models.length > 0) {
+        modelToUse = activeProvider.models[0].name;
+      }
+
+      console.log(`Sending request to ${activeProvider.name} with model: ${modelToUse || 'default'}`);
+      
+      if (!apiKey && !activeProvider.defaultApiKey) {
+        // If no API key is provided and no default exists
+        setNotification({
+          type: 'error',
+          message: `No API key provided for ${activeProvider.label}. Please add your API key in settings.`
+        });
+        throw new Error(`No API key provided for ${activeProvider.label}`);
+      }
+      
       const responseText = await getAIResponse({
-        model: selectedModel || undefined,
+        model: modelToUse || undefined,
         message,
         provider: activeProvider.name,
         apiKey: apiKey || activeProvider.defaultApiKey || "",
@@ -389,18 +438,48 @@ export const AskAspri: React.FC = () => {
       
     } catch (error) {
       console.error("Error getting AI response:", error);
-      // Create an error message
-      const errorMessage: Message = {
-        role: "assistant",
-        content: "Sorry, I encountered an error. Please try again or check your API key settings.",
-        timestamp: new Date()
-      };
+      
+      // Create a more specific error message
+      let errorMessage: Message;
+      let notificationType: 'info' | 'warning' | 'error' = 'error';
+      let notificationMsg = '';
+      
+      if (String(error).includes("API key")) {
+        errorMessage = {
+          role: "assistant",
+          content: "Invalid API key. Please check your API key in settings.",
+          timestamp: new Date()
+        };
+        notificationMsg = `API key error: Please check your ${activeProvider.label} API key in settings.`;
+      } else if (String(error).includes("Unexpected API response format")) {
+        errorMessage = {
+          role: "assistant",
+          content: "Received an unexpected response format from the AI provider. Please try again with a different provider.",
+          timestamp: new Date()
+        };
+        notificationMsg = `Unexpected response format from ${activeProvider.label}. Try another provider.`;
+      } else {
+        errorMessage = {
+          role: "assistant",
+          content: `Sorry, I encountered an error. Please try again or check your API key settings.`,
+          timestamp: new Date()
+        };
+        notificationMsg = `Connection error with ${activeProvider.label}. Please try again or switch providers.`;
+      }
+      
       setMessages([...messages, errorMessage]);
+      setNotification({
+        type: notificationType,
+        message: notificationMsg
+      });
     }
   };
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
+    
+    // Reset notification
+    setNotification(null);
     
     // Create a new user message
     const newMessage: Message = {
@@ -454,7 +533,53 @@ export const AskAspri: React.FC = () => {
               {t('askAspri.subtitle')}
             </p>
           </div>
-          
+
+          {notification && (
+            <div 
+              className={`rounded-md p-3 mb-4 ${
+                notification.type === 'error' ? 'bg-red-900 bg-opacity-30 border border-red-700' :
+                notification.type === 'warning' ? 'bg-yellow-900 bg-opacity-30 border border-yellow-700' :
+                'bg-blue-900 bg-opacity-30 border border-blue-700'
+              }`}
+            >
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  {notification.type === 'error' ? (
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  ) : notification.type === 'warning' ? (
+                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm text-white">
+                    {notification.message}
+                  </p>
+                </div>
+                <div className="ml-auto pl-3">
+                  <div className="-mx-1.5 -my-1.5">
+                    <button
+                      onClick={() => setNotification(null)}
+                      className="inline-flex rounded-md p-1.5 text-gray-300 hover:bg-[#1a1f23] focus:outline-none"
+                    >
+                      <span className="sr-only">Dismiss</span>
+                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Chat area */}
           <div className="flex-grow overflow-y-auto mb-4 bg-[#1a1f23] rounded-lg p-4">
             {messages.length === 0 ? (
@@ -467,6 +592,20 @@ export const AskAspri: React.FC = () => {
                       </svg>
                     </div>
                   </div>
+                  <h3 className="text-white text-xl font-semibold mb-2">{t('askAspri.welcome_title')}</h3>
+                  <p className="text-gray-400 mb-4">{t('askAspri.welcome_message')}</p>
+                  
+                  {!apiKey && !activeProvider.defaultApiKey && (
+                    <div className="mt-4 p-3 bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded-md text-white text-sm">
+                      <p>{t('askAspri.api_key_required')}</p>
+                      <button 
+                        onClick={() => setShowSettings(true)}
+                        className="mt-2 text-[#ff6f06] hover:underline"
+                      >
+                        {t('askAspri.open_settings')}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -474,15 +613,15 @@ export const AskAspri: React.FC = () => {
                 {messages.map((message, index) => (
                   <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === "user" 
-                        ? "bg-[#ff6f06] text-white" 
+                      message.role === "user"
+                        ? "bg-[#ff6f06] text-white"
                         : "bg-[#2f373e] text-white"
                     }`}>
                       <div className="whitespace-pre-wrap">{message.content}</div>
                       <div className={`text-xs mt-1 ${
                         message.role === "user" ? "text-white/70" : "text-gray-400"
                       }`}>
-                        {formatTime(message.timestamp)}
+                        {message.role === "user" ? t('askAspri.you') : t('askAspri.aspri')} • {formatTime(message.timestamp)}
                       </div>
                     </div>
                   </div>
@@ -491,8 +630,8 @@ export const AskAspri: React.FC = () => {
               </div>
             )}
           </div>
-          
-          {/* Input area */}
+
+          {/* Controls */}
           <div className="mt-auto">
             <div className="flex justify-between mb-2">
               <Button 
@@ -518,20 +657,46 @@ export const AskAspri: React.FC = () => {
                 placeholder={t('askAspri.inputPlaceholder')}
                 className="flex-grow bg-[#1a1f23] text-white rounded-lg border border-gray-700 p-3 focus:outline-none focus:ring-2 focus:ring-[#ff6f06] resize-none"
                 rows={2}
-                disabled={isLoading}
+                disabled={isLoading || showLimitModal}
               />
-              <Button 
+              <Button
                 onClick={handleSendMessage}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || showLimitModal}
                 className="bg-[#ff6f06] hover:bg-[#e56300] text-white h-full px-4 py-3 rounded-lg disabled:opacity-50"
               >
-                {isLoading ? t('askAspri.sending') : t('askAspri.send')}
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {t('askAspri.sending')}
+                  </div>
+                ) : t('askAspri.send')}
               </Button>
+            </div>
+            
+            {/* Provider info */}
+            <div className="mt-2 text-xs text-gray-500 flex justify-between">
+              <div>
+                {t('askAspri.powered_by')} {activeProvider.label}
+                {selectedModel && ` • ${selectedModel}`}
+              </div>
+              <div>
+                {apiKey ? (
+                  <span className="text-green-500">✓ {t('askAspri.using_custom_key')}</span>
+                ) : activeProvider.defaultApiKey ? (
+                  <span>{t('askAspri.using_default_key')}</span>
+                ) : (
+                  <span className="text-red-500">⚠ {t('askAspri.no_api_key')}</span>
+                )}
+              </div>
             </div>
           </div>
         </>
       )}
-      
+
+      {/* Free usage limit modal */}
       {showLimitModal && (
         <LimitExceededModal
           onClose={() => setShowLimitModal(false)}

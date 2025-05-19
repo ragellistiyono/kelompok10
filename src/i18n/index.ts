@@ -19,7 +19,7 @@ i18n
       },
       ja: {
         translation: jaTranslations,
-      },
+      }
     },
     fallbackLng: 'id',
     interpolation: {

@@ -90,10 +90,22 @@
     "title": "Ask Aspri Anything",
     "subtitle": "I'm here to help with answering questions, providing information, or assisting with tasks. Just type a message below to start our conversation.",
     "inputPlaceholder": "Type your message here...",
+    "type_message": "Type your message here...",
     "sending": "Sending...",
     "send": "Send",
     "clear": "Clear Chat",
+    "clear_chat": "Clear Chat",
     "settings": "Settings",
+    "welcome_title": "Welcome to Aspri AI Assistant",
+    "welcome_message": "Ask me anything! I'm here to help with answering questions, providing information, or assisting with tasks.",
+    "api_key_required": "You need to add an API key to use this assistant.",
+    "open_settings": "Open Settings",
+    "you": "You",
+    "aspri": "Aspri",
+    "powered_by": "Powered by",
+    "using_custom_key": "Using custom API key",
+    "using_default_key": "Using default API key",
+    "no_api_key": "No API key provided",
     "settings_modal": {
       "title": "AI Settings",
       "provider_label": "AI Provider",
@@ -260,6 +272,13 @@
     "priorityMedium": "Medium",
     "priorityHigh": "High",
     "comingSoon": "Coming Soon!",
-    "featureDesc": "AI Integration feature is currently under development and will be available soon. We're working on bringing you powerful AI tools to enhance your task management experience."
+    "featureDesc": "AI Features",
+    "getStarted": "Get Started",
+    "taskEnhancementTitle": "Task Enhancement",
+    "taskEnhancementDesc": "AI can improve your task titles, descriptions, and suggest better categorization or priority levels",
+    "askAspriTitle": "Ask ASPRI",
+    "askAspriDesc": "Chat with AI to get task suggestions, productivity tips, or help with task planning",
+    "apiKeyTitle": "API Key Management",
+    "apiKeyDesc": "Use your own API keys or our provided default keys for multiple AI providers"
   }
 }
