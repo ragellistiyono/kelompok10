@@ -122,43 +122,43 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTextCapture }) => {
   };
 
   return (
-    <div className="bg-[#2f373e] rounded-lg p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-white text-xl font-bold">{t('voiceToText.title')}</h2>
+    <div className="bg-[#2f373e] rounded-lg p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+        <h2 className="text-white text-lg md:text-xl font-bold">{t('voiceToText.title')}</h2>
         
-        <div className="flex items-center gap-3">
-          <span className="text-white text-sm opacity-70">
+        <div className="flex items-center gap-2">
+          <span className="text-white text-xs sm:text-sm opacity-70">
             {t('voiceToText.currentLanguage')}: {getRecognitionLanguage()}
           </span>
         </div>
       </div>
       
       <div className="flex flex-col space-y-4">
-        <div className={`min-h-[150px] p-4 rounded-lg ${isListening ? 'bg-[#3a444d] border border-[#ff6f06]' : 'bg-[#242b31]'} relative`}>
-          <div className="text-white whitespace-pre-wrap">
+        <div className={`min-h-[120px] sm:min-h-[150px] p-3 sm:p-4 rounded-lg ${isListening ? 'bg-[#3a444d] border border-[#ff6f06]' : 'bg-[#242b31]'} relative`}>
+          <div className="text-white whitespace-pre-wrap text-sm sm:text-base">
             {text || <span className="opacity-50">{t('voiceToText.placeholder')}</span>}
           </div>
           
           {isListening && (
             <div className="absolute bottom-2 right-2 flex items-center gap-2">
-              <span className="inline-block w-3 h-3 bg-[#ff6f06] rounded-full animate-pulse"></span>
-              <span className="text-[#ff6f06] text-sm">{t('voiceToText.listening')}</span>
+              <span className="inline-block w-2 h-2 sm:w-3 sm:h-3 bg-[#ff6f06] rounded-full animate-pulse"></span>
+              <span className="text-[#ff6f06] text-xs sm:text-sm">{t('voiceToText.listening')}</span>
             </div>
           )}
         </div>
         
         {error && (
-          <div className="bg-red-600 text-white p-3 rounded-lg text-sm">
+          <div className="bg-red-600 text-white p-2 sm:p-3 rounded-lg text-xs sm:text-sm">
             {error}
           </div>
         )}
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3">
           <Button 
             onClick={toggleListening}
-            className={`px-6 py-2 rounded-md flex items-center gap-2 ${isListening ? 'bg-red-500 hover:bg-red-600' : 'bg-[#ff6f06] hover:bg-[#e56300]'} text-white`}
+            className={`px-4 sm:px-6 py-2 rounded-md flex items-center gap-1 sm:gap-2 ${isListening ? 'bg-red-500 hover:bg-red-600' : 'bg-[#ff6f06] hover:bg-[#e56300]'} text-white text-sm sm:text-base w-full sm:w-auto`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
               <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
               <path d="M6 10.5a.75.75 0 01.75.75v1.5a5.25 5.25 0 1010.5 0v-1.5a.75.75 0 011.5 0v1.5a6.751 6.751 0 01-6 6.709v2.291h3a.75.75 0 010 1.5h-7.5a.75.75 0 010-1.5h3v-2.291a6.751 6.751 0 01-6-6.709v-1.5A.75.75 0 016 10.5z" />
             </svg>
@@ -167,7 +167,7 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTextCapture }) => {
           
           <Button 
             onClick={clearText}
-            className="px-4 py-2 rounded-md bg-[#383f45] hover:bg-[#434b53] text-white"
+            className="px-3 sm:px-4 py-2 rounded-md bg-[#383f45] hover:bg-[#434b53] text-white text-sm sm:text-base w-full sm:w-auto"
             disabled={!text}
           >
             {t('voiceToText.clear')}
@@ -175,7 +175,7 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTextCapture }) => {
           
           <Button 
             onClick={copyToClipboard}
-            className="px-4 py-2 rounded-md bg-[#383f45] hover:bg-[#434b53] text-white ml-auto"
+            className="px-3 sm:px-4 py-2 rounded-md bg-[#383f45] hover:bg-[#434b53] text-white text-sm sm:text-base w-full sm:w-auto mt-2 sm:mt-0 sm:ml-auto"
             disabled={!text}
           >
             {t('voiceToText.copy')}
@@ -183,9 +183,9 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTextCapture }) => {
         </div>
       </div>
       
-      <div className="border-t border-[#3a444d] pt-4 mt-4">
-        <h3 className="text-white text-lg font-medium mb-3">{t('voiceToText.tips')}</h3>
-        <ul className="text-white opacity-70 space-y-2 text-sm">
+      <div className="border-t border-[#3a444d] pt-3 sm:pt-4 mt-3 sm:mt-4">
+        <h3 className="text-white text-base sm:text-lg font-medium mb-2 sm:mb-3">{t('voiceToText.tips')}</h3>
+        <ul className="text-white opacity-70 space-y-1 sm:space-y-2 text-xs sm:text-sm">
           <li>• {t('voiceToText.tip1')}</li>
           <li>• {t('voiceToText.tip2')}</li>
           <li>• {t('voiceToText.tip3')}</li>

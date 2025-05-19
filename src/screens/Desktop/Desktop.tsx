@@ -440,7 +440,7 @@ export const Desktop = (): JSX.Element => {
               <LanguageSelector />
             </div>
           ) : voiceToTextActive ? (
-            <div className="mt-8">
+            <div className="mt-4 sm:mt-6 md:mt-8 px-1 sm:px-2 md:px-0">
               <VoiceToText onTextCapture={handleCapturedText} />
             </div>
           ) : formalizationActive ? (
