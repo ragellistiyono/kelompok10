@@ -13,7 +13,7 @@ interface UserProfileProps {
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ 
-  initialName = "Jihan Haura", 
+  initialName = "Isi Dengan Namamu", 
   initialImage = "/ellipse-4.png" 
 }) => {
   const { t } = useTranslation();
