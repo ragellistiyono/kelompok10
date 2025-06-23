@@ -73,7 +73,7 @@
       "addingTask": "Adding Task...",
       "addTask": "Add Task",
       "taskAddedSuccess": "Task added successfully! You can see it below.",
-      "workingOffline": "Working in offline mode. Tasks will be saved locally."
+      "workingOffline": "Tasks will be saved locally."
     },
     "list": {
       "allTasks": "All Tasks",
@@ -83,7 +83,7 @@
       "loading": "Loading tasks...",
       "noTasks": "No tasks found in this view. Add your first task!",
       "noCategoryTasks": "No tasks found in \"{category}\" category. Add your first task!",
-      "offlineMode": "Working in offline mode. Changes will be saved locally."
+      "offlineMode": "Changes will be saved locally."
     }
   },
   "askAspri": {
@@ -144,7 +144,7 @@
     "deleteConfirm": "Are you sure you want to delete this task? This action cannot be undone.",
     "delete": "Delete",
     "cancel": "Cancel",
-    "offlineMode": "Working in offline mode. Changes will be saved locally.",
+    "offlineMode": "Changes will be saved locally.",
     "viewConversation": "View Conversation",
     "close": "Close"
   },
