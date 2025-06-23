@@ -82,7 +82,7 @@
       "yourTasks": "Your Tasks",
       "loading": "Loading tasks...",
       "noTasks": "No tasks found in this view. Add your first task!",
-      "noCategoryTasks": "No tasks found in \"{category}\" category. Add your first task!",
+      "noCategoryTasks": "No tasks found in this category. Add your first task!",
       "offlineMode": "Changes will be saved locally."
     }
   },
