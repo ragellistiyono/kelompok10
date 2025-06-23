@@ -82,7 +82,7 @@
       "yourTasks": "Tugas Anda",
       "loading": "Memuat tugas...",
       "noTasks": "Tidak ada tugas yang ditemukan dalam tampilan ini. Tambahkan tugas pertama Anda!",
-      "noCategoryTasks": "Tidak ada tugas yang ditemukan dalam kategori \"{category}\". Tambahkan tugas pertama Anda!",
+      "noCategoryTasks": "Tidak ada tugas yang ditemukan dalam kategori ini. Tambahkan tugas pertama Anda!",
       "offlineMode": "Bekerja dalam mode offline. Perubahan akan disimpan secara lokal."
     }
   },
